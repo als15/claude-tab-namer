@@ -1,0 +1,11 @@
+Every Claude Code terminal tab in Cursor says "node".
+
+When you're running 3-4 sessions in parallel — one refactoring auth, another debugging a parser, another on migrations — the only way to tell them apart is clicking through each tab.
+
+So I built a Claude Code hook that auto-names tabs from conversation context.
+
+Now my tabs say things like "🤖 Site Builder Implementation" instead of "node".
+
+The whole thing is ~60 lines of bash, uses Claude Code's built-in hook system, and took an afternoon to build + debug.
+
+Full writeup with the implementation details and source code 👇
