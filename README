@@ -1,11 +1,118 @@
-Every Claude Code terminal tab in Cursor says "node".
+# 🤖 claude-tab-namer
 
-When you're running 3-4 sessions in parallel — one refactoring auth, another debugging a parser, another on migrations — the only way to tell them apart is clicking through each tab.
+A Claude Code hook that automatically names your terminal tabs based on conversation context. No more guessing which "node" tab is which.
 
-So I built a Claude Code hook that auto-names tabs from conversation context.
+![Before and After](https://img.shields.io/badge/tabs-auto--named-blue)
 
-Now my tabs say things like "🤖 Site Builder Implementation" instead of "node".
+## Before & After
 
-The whole thing is ~60 lines of bash, uses Claude Code's built-in hook system, and took an afternoon to build + debug.
+| Before | After |
+|--------|-------|
+| `node` · `node` · `node` | `🤖 Site Builder Implementation` · `🤖 Fix Auth Middleware` · `🤖 DB Migration Setup` |
 
-Full writeup with the implementation details and source code 👇
+## How It Works
+
+1. Claude Code finishes a response → fires the `Stop` hook
+2. The script reads the conversation transcript from the session JSONL file
+3. Calls `claude -p` (one-shot prompt mode) with Haiku to generate a 2–5 word title
+4. Sets the terminal tab name via an OSC escape sequence
+
+Uses your existing Claude Code auth — no separate API key needed.
+
+## Installation
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/YOUR_USERNAME/claude-tab-namer.git
+```
+
+### 2. Copy the hook script
+
+```bash
+mkdir -p ~/.claude/hooks
+cp claude-tab-namer/tab-namer.sh ~/.claude/hooks/tab-namer.sh
+chmod +x ~/.claude/hooks/tab-namer.sh
+```
+
+### 3. Register the hook
+
+Add this to `~/.claude/settings.json` (create the file if it doesn't exist, or merge into your existing config):
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/tab-namer.sh",
+            "timeout": 15000
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 4. Configure your IDE terminal
+
+Add this to your Cursor or VS Code `settings.json` (Cmd+Shift+P → "Preferences: Open User Settings (JSON)"):
+
+```json
+{
+  "terminal.integrated.tabs.title": "${sequence}",
+  "terminal.integrated.tabs.enabled": true
+}
+```
+
+This tells the terminal to respect escape-sequence tab names instead of showing the default process name.
+
+### 5. Restart Claude Code
+
+Open a new terminal, start `claude`, send a message, and wait for the response to complete. Your tab name should update automatically.
+
+## Configuration
+
+Optional environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAUDE_NAMED_PREFIX` | `🤖` | Emoji/text prefix for tab titles |
+| `CLAUDE_NAMED_MODEL` | `claude-haiku-4-5-20251001` | Model used for title generation |
+
+## How It Manages Costs
+
+- Generates a title on the **first response** only
+- Refreshes every **5 turns** in case the conversation shifts
+- Uses **Haiku** (fastest, cheapest model)
+- Each title generation costs a fraction of a cent
+
+## Troubleshooting
+
+**Tab still says "node"**
+→ Make sure you added `"terminal.integrated.tabs.title": "${sequence}"` to your IDE settings and restarted the terminal.
+
+**Title never generates**
+→ Run the hook manually to debug:
+```bash
+rm -rf ${TMPDIR:-/tmp}/claude-tab-namer/
+echo '{"session_id":"test","transcript_path":"PATH_TO_A_SESSION_JSONL","hook_event_name":"Stop"}' \
+  | bash -x ~/.claude/hooks/tab-namer.sh
+```
+
+**Auth conflict warning**
+→ If you see "Both a token and an API key are set", the hook's `claude -p` call uses your existing OAuth login — no `ANTHROPIC_API_KEY` needed. You can safely unset it.
+
+## License
+
+MIT
+
+## Blog Post
+
+Full writeup on how and why I built this: **https://www.alsade.me/blog/claude-code-tab-namer**
+
+
